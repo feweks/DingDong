@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>dingdong</AssemblyName>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Raylib-cs" Version="6.1.1" />
+	
+	<Reference Include="RiptideNetworking">
+	  <HintPath>lib/RiptideNetworking.dll</HintPath>
+	</Reference>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,12 @@
+{
+    "Resolution": [
+        1280,
+        720
+    ],
+    "Title": "Ding Dong Multiplayer",
+    "Fps": 60,
+    "WebServer": "http://77.87.220.23/DingDong.html",
+    "Flags": [
+        4
+    ]
+}
