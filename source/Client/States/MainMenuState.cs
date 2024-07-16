@@ -179,7 +179,7 @@ class MainMenuState : State
             int ver = DrawLabel(5, $"Dostępna jest nowa wersja: {latestVersion}", 0, 500);
             if (ver == 1)
             {
-                Raylib.OpenURL("https://github.com/feweks/DingDong/releases/tag/major");
+                Raylib.OpenURL("https://github.com/feweks/DingDong/releases");
                 Environment.Exit(0);
             }
         }
