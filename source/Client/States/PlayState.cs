@@ -73,6 +73,11 @@ class PlayState : State
             Raylib.PlayMusicStream(music);
         };
 
+        DongClient.OnPlaySound += () =>
+        {
+            Raylib.PlaySound(ballSfx);
+        };
+
         Discord.ChangePresenece("W grze", null, "icon", false);
     }
 
@@ -184,17 +189,23 @@ class PlayState : State
             var p2hbox = new Rectangle(Config.Width - 15 - 35, DongClient.player2.Position, 15, 150);
             var ballhbox = new Rectangle(DongClient.ball.X - (ball.Width * 0.25f * 0.5f), DongClient.ball.Y - (ball.Height * 0.25f * 0.5f), ball.Width * 0.25f, ball.Height * 0.25f);
 
-            if (DongClient.ball.Y < ball.Height * 0.25f * 0.5f)
+            if (DongClient.ball.Y < ball.Height * 0.25f * 0.5f && DongClient.PlayerId == 0)
             {
                 ballSpeed += 1;
                 ballForceY = -ballForceY;
                 Raylib.PlaySound(ballSfx);
+
+                Message msg = Message.Create(MessageSendMode.Reliable, (ushort)DongSrvMessageType.PlaySound);
+                DongClient.Send(msg);
             }
-            if (DongClient.ball.Y > Config.Height - ball.Height * 0.25f * 0.5f)
+            if (DongClient.ball.Y > Config.Height - ball.Height * 0.25f * 0.5f && DongClient.PlayerId == 0)
             {
                 ballSpeed += 1;
                 ballForceY = -ballForceY;
                 Raylib.PlaySound(ballSfx);
+
+                Message msg = Message.Create(MessageSendMode.Reliable, (ushort)DongSrvMessageType.PlaySound);
+                DongClient.Send(msg);
             }
 
             if (DongClient.PlayerId == 0)
@@ -207,6 +218,9 @@ class PlayState : State
 
                     DongClient.ball.X += 5;
                     Raylib.PlaySound(ballSfx);
+
+                    Message msg = Message.Create(MessageSendMode.Reliable, (ushort)DongSrvMessageType.PlaySound);
+                    DongClient.Send(msg);
                 }
 
                 if (Raylib.CheckCollisionRecs(p2hbox, ballhbox))
@@ -217,6 +231,9 @@ class PlayState : State
 
                     DongClient.ball.X -= 5;
                     Raylib.PlaySound(ballSfx);
+
+                    Message msg = Message.Create(MessageSendMode.Reliable, (ushort)DongSrvMessageType.PlaySound);
+                    DongClient.Send(msg);
                 }
 
                 if (DongClient.ball.X < ball.Width * 0.25f * 0.5f)

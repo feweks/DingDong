@@ -14,6 +14,7 @@ class DongClient
     public static Action? OnGameStarted;
     public static Action<int>? OnPlayerLeave;
     public static Action<int, int>? OnPlayerPoints;
+    public static Action? OnPlaySound;
     public static Action? OnPlayMusic;
     public static void Connect(string nick, int id, string ip, int port)
     {
@@ -164,6 +165,11 @@ class DongClient
             case DongSrvMessageType.PlayMusic:
                 {
                     OnPlayMusic?.Invoke();
+                    break;
+                }
+            case DongSrvMessageType.PlaySound:
+                {
+                    OnPlaySound?.Invoke();
                     break;
                 }
         }
