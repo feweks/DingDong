@@ -30,7 +30,7 @@ class MainMenuState : State
     static Font vtFont;
     Texture2D menu;
     Texture2D menulabel;
-    Version version = new Version(1, 1, 0);
+    Version version = new Version(1, 1, 1);
     static Dictionary<uint, InputLabelState> inputLabelStates = new Dictionary<uint, InputLabelState>();
     static Dictionary<uint, LabelState> labelStates = new Dictionary<uint, LabelState>();
     MainMenuSubstate state = MainMenuSubstate.Check;
