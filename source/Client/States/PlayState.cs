@@ -21,6 +21,10 @@ class PlayState : State
     int ballY = 0;
     float ballAngle = 0;
     int playerLeft = -1;
+    bool playingMusic = false;
+    Sound ballSfx;
+    Sound pointSfx;
+    Music music;
     public override void Create()
     {
         base.Create();
@@ -30,6 +34,10 @@ class PlayState : State
         table = Assets.GetTexture("resources/table.png");
         ball = Assets.GetTexture("resources/ball.png");
         fnt = Assets.GetFont("resources/vt323.ttf");
+        ballSfx = Assets.GetSound("resources/game_bounce.ogg");
+        pointSfx = Assets.GetSound("resources/game_points.ogg");
+
+        music = Raylib.LoadMusicStream("resources/game_music.ogg");
 
         randomEngine = new Random();
 
@@ -37,17 +45,60 @@ class PlayState : State
         {
             gameStarted = true;
             Console.WriteLine("Game started");
+            Discord.ChangePresenece("W grze", $"Gra przeciwko {DongClient.player1.Nick} [{DongClient.player1.Points}:{DongClient.player2.Points}]", "icon", false);
+            StatisticsState.SaveStat(StatType.GamePlayed, (int.Parse(StatisticsState.statistics[StatType.GamePlayed]) + 1).ToString());
         };
 
         DongClient.OnPlayerLeave += (id) =>
         {
             playerLeft = id;
         };
+
+        DongClient.OnPlayerPoints += (p, id) =>
+        {
+            Raylib.PlaySound(pointSfx);
+
+            Raylib.StopMusicStream(music);
+            playingMusic = false;
+
+            if (id == 1)
+                StatisticsState.SaveStat(StatType.Points, (int.Parse(StatisticsState.statistics[StatType.Points]) + 1).ToString());
+
+            Discord.ChangePresenece("W grze", $"Gra przeciwko {DongClient.player1.Nick} [{DongClient.player1.Points}:{DongClient.player2.Points}]", "icon", false);
+        };
+
+        DongClient.OnPlayMusic += () =>
+        {
+            playingMusic = true;
+            Raylib.PlayMusicStream(music);
+        };
+
+        Discord.ChangePresenece("W grze", null, "icon", false);
     }
 
     public override void Update(float dt)
     {
         base.Update(dt);
+
+        if (playingMusic)
+        {
+            Raylib.UpdateMusicStream(music);
+        }
+
+        if (DongClient.PlayerId == 0)
+        {
+            if (DongClient.player1.Points > int.Parse(StatisticsState.statistics[StatType.Highscore]))
+            {
+                StatisticsState.SaveStat(StatType.Highscore, DongClient.player1.Points.ToString());
+            }
+        }
+        else
+        {
+            if (DongClient.player2.Points > int.Parse(StatisticsState.statistics[StatType.Highscore]))
+            {
+                StatisticsState.SaveStat(StatType.Highscore, DongClient.player2.Points.ToString());
+            }
+        }
 
         try
         {
@@ -72,6 +123,17 @@ class PlayState : State
 
             if (DongClient.PlayerId == 0)
             {
+                if (ballSpeed > 30 && !playingMusic)
+                {
+                    playingMusic = true;
+                    try
+                    {
+                        Message msg = Message.Create(MessageSendMode.Reliable, (ushort)DongSrvMessageType.PlayMusic);
+                        DongClient.Send(msg);
+                    }
+                    catch (Exception e) { }
+                }
+
                 try
                 {
                     Message msg = Message.Create(MessageSendMode.Unreliable, (int)DongSrvMessageType.UpdatePlayer);
@@ -115,15 +177,25 @@ class PlayState : State
 
                 DongClient.ball.X += (int)(ballForceX * dt * (350 + ballSpeed * 10));
                 DongClient.ball.Y += (int)(ballForceY * dt * (350 + ballSpeed * 10));
-                DongClient.ball.Angle += (int)(200 * dt);
+                DongClient.ball.Angle += (int)((200 + (ballSpeed * 20)) * dt);
             }
 
             var p1hbox = new Rectangle(35, DongClient.player1.Position, 15, 150);
             var p2hbox = new Rectangle(Config.Width - 15 - 35, DongClient.player2.Position, 15, 150);
             var ballhbox = new Rectangle(DongClient.ball.X - (ball.Width * 0.25f * 0.5f), DongClient.ball.Y - (ball.Height * 0.25f * 0.5f), ball.Width * 0.25f, ball.Height * 0.25f);
 
-            if (DongClient.ball.Y < ball.Height * 0.25f * 0.5f) ballForceY = -ballForceY;
-            if (DongClient.ball.Y > Config.Height - ball.Height * 0.25f * 0.5f) ballForceY = -ballForceY;
+            if (DongClient.ball.Y < ball.Height * 0.25f * 0.5f)
+            {
+                ballSpeed += 1;
+                ballForceY = -ballForceY;
+                Raylib.PlaySound(ballSfx);
+            }
+            if (DongClient.ball.Y > Config.Height - ball.Height * 0.25f * 0.5f)
+            {
+                ballSpeed += 1;
+                ballForceY = -ballForceY;
+                Raylib.PlaySound(ballSfx);
+            }
 
             if (DongClient.PlayerId == 0)
             {
@@ -134,6 +206,7 @@ class PlayState : State
                     ballForceX = -ballForceX;
 
                     DongClient.ball.X += 5;
+                    Raylib.PlaySound(ballSfx);
                 }
 
                 if (Raylib.CheckCollisionRecs(p2hbox, ballhbox))
@@ -143,6 +216,7 @@ class PlayState : State
                     ballForceX = -ballForceX;
 
                     DongClient.ball.X -= 5;
+                    Raylib.PlaySound(ballSfx);
                 }
 
                 if (DongClient.ball.X < ball.Width * 0.25f * 0.5f)
@@ -161,10 +235,19 @@ class PlayState : State
                     pMsg.AddInt(DongClient.player2.Points);
                     pMsg.AddInt(1);
                     DongClient.Send(pMsg);
+
+                    Raylib.PlaySound(pointSfx);
+                    Raylib.StopMusicStream(music);
+                    playingMusic = false;
+
+                    Discord.ChangePresenece("W grze", $"Gra przeciwko {DongClient.player2.Nick} [{DongClient.player1.Points}:{DongClient.player2.Points}]", "icon", false);
                 }
                 else if (DongClient.ball.X > Config.Width - ball.Width * 0.25f * 0.5f)
                 {
                     DongClient.player1.Points++;
+
+                    StatisticsState.SaveStat(StatType.Points, (int.Parse(StatisticsState.statistics[StatType.Points]) + 1).ToString());
+
 
                     ballForceX = 0;
                     ballForceY = 0;
@@ -178,13 +261,40 @@ class PlayState : State
                     pMsg.AddInt(DongClient.player1.Points);
                     pMsg.AddInt(0);
                     DongClient.Send(pMsg);
+
+                    Raylib.PlaySound(pointSfx);
+                    Raylib.StopMusicStream(music);
+                    playingMusic = false;
+
+                    Discord.ChangePresenece("W grze", $"Gra przeciwko {DongClient.player2.Nick} [{DongClient.player1.Points}:{DongClient.player2.Points}]", "icon", false);
                 }
 
-                Message ballPos = Message.Create(MessageSendMode.Reliable, (ushort)DongSrvMessageType.BallPos);
-                ballPos.AddInt(DongClient.ball.X);
-                ballPos.AddInt(DongClient.ball.Y);
-                ballPos.AddFloat(DongClient.ball.Angle);
-                DongClient.Send(ballPos);
+                try
+                {
+                    Message ballPos = Message.Create(MessageSendMode.Reliable, (ushort)DongSrvMessageType.BallPos);
+                    ballPos.AddInt(DongClient.ball.X);
+                    ballPos.AddInt(DongClient.ball.Y);
+                    ballPos.AddFloat(DongClient.ball.Angle);
+                    DongClient.Send(ballPos);
+                }
+                catch (Exception e) { Console.WriteLine("Failed to send ballpos"); }
+            }
+        }
+
+        if (Raylib.IsKeyPressed(KeyboardKey.Escape))
+        {
+            if (DongClient.PlayerId == 0)
+            {
+                DongClient.client.Disconnect();
+                DongServer.server?.Stop();
+                DongClient.player1.Nick = null;
+                DongClient.player2.Nick = null;
+            }
+            else
+            {
+                DongClient.client.Disconnect();
+                DongClient.player1.Nick = null;
+                DongClient.player2.Nick = null;
             }
         }
     }
@@ -227,7 +337,7 @@ class PlayState : State
 
         if (DongClient.PlayerId == 1 && DongClient.player1.Nick == string.Empty || DongClient.player1.Nick == null)
         {
-            int res = MainMenuState.DrawLabel("NIE UDAŁO POŁĄCZYĆ SIĘ Z SERWEREM", 0, 500);
+            int res = MainMenuState.DrawLabel(50, "NIE UDAŁO POŁĄCZYĆ SIĘ Z SERWEREM", 0, 500);
             if (res == 1)
             {
                 Program.SwitchState(new MainMenuState());
@@ -253,8 +363,11 @@ class PlayState : State
                 {
                     if (Raylib.IsMouseButtonPressed(MouseButton.Left))
                     {
+                        StatisticsState.SaveStat(StatType.GamePlayed, (int.Parse(StatisticsState.statistics[StatType.GamePlayed]) + 1).ToString());
+
                         DongClient.Send(Message.Create(MessageSendMode.Reliable, (ushort)DongSrvMessageType.StartGame));
                         gameStarted = true;
+                        Discord.ChangePresenece("W grze", $"Gra przeciwko {DongClient.player2.Nick} [{DongClient.player1.Points}:{DongClient.player2.Points}]", "icon", false);
                     }
                 }
             }
@@ -264,7 +377,7 @@ class PlayState : State
 
         if (playerLeft == 0)
         {
-            int res = MainMenuState.DrawLabel($"{DongClient.player1.Nick} WYSZEDŁ", 0, 500);
+            int res = MainMenuState.DrawLabel(51, $"{DongClient.player1.Nick} WYSZEDŁ", 0, 500);
             gameStarted = false;
             if (res == 1)
             {
@@ -276,7 +389,7 @@ class PlayState : State
         }
         else if (playerLeft == 1)
         {
-            int res = MainMenuState.DrawLabel($"{DongClient.player2.Nick} WYSZEDŁ", 0, 500);
+            int res = MainMenuState.DrawLabel(52, $"{DongClient.player2.Nick} WYSZEDŁ", 0, 500);
             gameStarted = false;
             if (res == 1)
             {

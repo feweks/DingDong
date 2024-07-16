@@ -19,6 +19,11 @@ class InputLabelState
     public bool Selected;
 }
 
+class LabelState
+{
+    public bool SoundPlayed;
+}
+
 class MainMenuState : State
 {
     Font titleFont;
@@ -27,8 +32,15 @@ class MainMenuState : State
     Texture2D menulabel;
     Version version = new Version(1, 0, 0);
     static Dictionary<uint, InputLabelState> inputLabelStates = new Dictionary<uint, InputLabelState>();
+    static Dictionary<uint, LabelState> labelStates = new Dictionary<uint, LabelState>();
     MainMenuSubstate state = MainMenuSubstate.Check;
     Version latestVersion = new Version(0, 0, 0);
+    static Sound menuConfirmSfx;
+    static Sound menuSelectSfx;
+    public static Sound backSfx;
+    Music music;
+    string ipCache = string.Empty;
+    string nickCache = string.Empty;
     public override void Create()
     {
         base.Create();
@@ -37,6 +49,13 @@ class MainMenuState : State
         vtFont = Assets.GetFont("resources/vt323.ttf");
         menu = Assets.GetTexture("resources/menu.png");
         menulabel = Assets.GetTexture("resources/menu_bg.png");
+        menuSelectSfx = Assets.GetSound("resources/menu_select.ogg");
+        menuConfirmSfx = Assets.GetSound("resources/menu_confirm.ogg");
+        backSfx = Assets.GetSound("resources/menu_back.ogg");
+
+        music = Raylib.LoadMusicStream("resources/menu_music.ogg");
+        music.Looping = true;
+        Raylib.PlayMusicStream(music);
 
         var r = GetWebServerData().Result;
 
@@ -45,11 +64,19 @@ class MainMenuState : State
             string[] data = r.Split(".");
             latestVersion = new Version(int.Parse(data[0]), int.Parse(data[1]), int.Parse(data[2]));
         }
+
+        string cache = File.ReadAllText("resources/cache.txt");
+        ipCache = cache.Split("\n")[0];
+        nickCache = cache.Split("\n")[1];
+
+        Discord.ChangePresenece("W menu głównym", null, "icon", true);
     }
 
     public override void Update(float dt)
     {
         base.Update(dt);
+
+        Raylib.UpdateMusicStream(music);
 
         if (Raylib.IsKeyPressed(KeyboardKey.Space))
         {
@@ -81,8 +108,10 @@ class MainMenuState : State
 
         if (state == MainMenuSubstate.Check)
         {
-            int hostLabel = DrawLabel("HOSTUJ", 25);
-            int joinLabel = DrawLabel("DOŁĄCZ", 125);
+            int hostLabel = DrawLabel(1, "HOSTUJ", -30);
+            int joinLabel = DrawLabel(2, "DOŁĄCZ", 40);
+            int statisticsLabel = DrawLabel(10, "STATYSYKI", 40 + 70);
+            int exitLabel = DrawLabel(11, "WYJDŹ", 40 + (70 * 2));
 
             if (hostLabel == 1)
             {
@@ -92,22 +121,33 @@ class MainMenuState : State
             {
                 state = MainMenuSubstate.Join;
             }
+            else if (statisticsLabel == 1)
+            {
+                Program.SwitchState(new StatisticsState());
+            }
+            else if (exitLabel == 1)
+            {
+                Environment.Exit(0);
+            }
         }
         else if (state == MainMenuSubstate.Host)
         {
             if (Raylib.IsKeyPressed(KeyboardKey.Escape))
             {
                 state = MainMenuSubstate.Check;
+                Raylib.PlaySound(backSfx);
             }
 
-            string ip = DrawLabelInput(0, "IP: ", "", 0);
-            string nick = DrawLabelInput(1, "NICK: ", "", 75);
-            int host = DrawLabel("HOSTUJ", 75 * 2);
+            string ip = DrawLabelInput(0, "IP: ", ipCache, 0);
+            string nick = DrawLabelInput(1, "NICK: ", nickCache, 75);
+            int host = DrawLabel(3, "HOSTUJ", 75 * 2);
 
             if (nick != string.Empty && ip != string.Empty && host == 1)
             {
                 DongServer.Start(ushort.Parse(ip.Split(":")[1]));
                 DongClient.Connect(nick, 0, ip.Split(":")[0], ushort.Parse(ip.Split(":")[1]));
+                string cache = ip + "\n" + nick;
+                File.WriteAllText("resources/cache.txt", cache);
                 Program.SwitchState(new PlayState());
             }
         }
@@ -116,16 +156,19 @@ class MainMenuState : State
             if (Raylib.IsKeyPressed(KeyboardKey.Escape))
             {
                 state = MainMenuSubstate.Check;
+                Raylib.PlaySound(backSfx);
             }
 
-            string ip = DrawLabelInput(10, "IP: ", "", 0);
-            string nick = DrawLabelInput(11, "NICK: ", "", 75);
-            int join = DrawLabel("DOŁĄCZ", 75 * 2);
+            string ip = DrawLabelInput(10, "IP: ", ipCache, 0);
+            string nick = DrawLabelInput(11, "NICK: ", nickCache, 75);
+            int join = DrawLabel(4, "DOŁĄCZ", 75 * 2);
 
             if (ip != string.Empty && ip != string.Empty && join == 1)
             {
                 DongClient.Connect(nick, 1, ip.Split(":")[0], ushort.Parse(ip.Split(":")[1]));
                 Thread.Sleep(100);
+                string cache = ip + "\n" + nick;
+                File.WriteAllText("resources/cache.txt", cache);
                 Program.SwitchState(new PlayState());
             }
         }
@@ -133,7 +176,7 @@ class MainMenuState : State
         if (version != latestVersion)
         {
             Raylib.DrawRectangle(0, 0, Config.Width, Config.Height, new Color(0, 0, 0, (int)(200 * 0.85f)));
-            int ver = DrawLabel($"Dostępna jest nowa wersja: {latestVersion}", 0, 500);
+            int ver = DrawLabel(5, $"Dostępna jest nowa wersja: {latestVersion}", 0, 500);
             if (ver == 1)
             {
                 Raylib.OpenURL("https://github.com/feweks/DingDong/releases/tag/major");
@@ -145,8 +188,10 @@ class MainMenuState : State
         Raylib.DrawTextEx(vtFont, $"feweks 2024 | Ding Dong {version}", new Vector2(5, Config.Height - mainMenuMeasure.Y - 5), 32, 1, Color.White);
     }
 
-    public static int DrawLabel(string text, int offset = 0, int width = 200, int height = 50)
+    public static int DrawLabel(uint id, string text, int offset = 0, int width = 200, int height = 50)
     {
+        if (!labelStates.ContainsKey(id)) labelStates.Add(id, new LabelState() { SoundPlayed = false });
+
         int result = 0;
 
         Rectangle label = new Rectangle(0, 0, width, height);
@@ -156,13 +201,24 @@ class MainMenuState : State
 
         Color outlineTint = new Color(13, 94, 150, 255);
         Vector2 mousePos = Raylib.GetMousePosition();
+
         if (Raylib.CheckCollisionRecs(new Rectangle(label.X * Config.ResolutionScale.X, label.Y * Config.ResolutionScale.Y, label.Width * Config.ResolutionScale.X, label.Height * Config.ResolutionScale.Y), new Rectangle(mousePos, new Vector2(15, 15) * Config.ResolutionScale)))
         {
             outlineTint = Color.White;
+            if (!labelStates[id].SoundPlayed)
+            {
+                Raylib.PlaySound(menuConfirmSfx);
+                labelStates[id].SoundPlayed = true;
+            }
             if (Raylib.IsMouseButtonPressed(MouseButton.Left))
             {
                 result = 1;
+                Raylib.PlaySound(menuSelectSfx);
             }
+        }
+        else
+        {
+            labelStates[id].SoundPlayed = false;
         }
 
         Raylib.DrawRectangleRounded(label, 0.35f, 25, new Color(18, 101, 167, 255));
@@ -178,7 +234,7 @@ class MainMenuState : State
     {
         if (!inputLabelStates.ContainsKey(id)) inputLabelStates.Add(id, new InputLabelState() { Selected = false, Text = dynamicText });
 
-        int res = DrawLabel(staticText + inputLabelStates[id].Text, offset, width, height);
+        int res = DrawLabel(id, staticText + inputLabelStates[id].Text, offset, width, height);
         if (Raylib.IsMouseButtonPressed(MouseButton.Left))
         {
             if (res == 1)
@@ -252,5 +308,12 @@ class MainMenuState : State
         }
 
         return response;
+    }
+
+    public override void Destroy()
+    {
+        base.Destroy();
+
+        Raylib.StopMusicStream(music);
     }
 }

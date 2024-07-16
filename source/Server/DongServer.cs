@@ -9,7 +9,8 @@ enum DongSrvMessageType
     UpdatePlayer = 3,
     ChangePoints = 5,
     BallPos = 6,
-    PlayerLeave = 7
+    PlayerLeave = 7,
+    PlayMusic = 8
 }
 
 class Player
@@ -183,6 +184,12 @@ class DongServer
                     msg.AddInt(id);
                     con2.Send(msg);
 
+                    break;
+                }
+            case DongSrvMessageType.PlayMusic:
+                {
+                    Message msg = Message.Create(MessageSendMode.Reliable, (ushort)DongSrvMessageType.PlayMusic);
+                    con2.Send(msg);
                     break;
                 }
             default:

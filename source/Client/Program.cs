@@ -17,6 +17,8 @@ class Program
     public static void Initialize()
     {
         Config.Load();
+
+        Discord.Init();
         foreach (var flag in Config.AppConfig.Flags)
         {
             Raylib.SetConfigFlags(flag);
@@ -28,6 +30,9 @@ class Program
 
         renderTexture = Raylib.LoadRenderTexture(Config.Width, Config.Height);
 
+        StatisticsState.Init();
+        StatisticsState.SaveStat(StatType.GameOpened, (int.Parse(StatisticsState.statistics[StatType.GameOpened]) + 1).ToString());
+
         SwitchState(new MainMenuState());
     }
 
@@ -38,6 +43,8 @@ class Program
             Update();
             Render();
         }
+
+        StatisticsState.Save();
     }
 
     private static void Update()

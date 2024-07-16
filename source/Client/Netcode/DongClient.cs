@@ -13,6 +13,8 @@ class DongClient
     public static Ball ball = new Ball() { X = Config.Width / 2, Y = Config.Height / 2, Angle = 0 };
     public static Action? OnGameStarted;
     public static Action<int>? OnPlayerLeave;
+    public static Action<int, int>? OnPlayerPoints;
+    public static Action? OnPlayMusic;
     public static void Connect(string nick, int id, string ip, int port)
     {
         client = new Riptide.Client();
@@ -137,6 +139,8 @@ class DongClient
                         player2.Points = points;
                     }
 
+                    OnPlayerPoints?.Invoke(points, id);
+
                     break;
                 }
             case DongSrvMessageType.BallPos:
@@ -155,6 +159,11 @@ class DongClient
                 {
                     OnPlayerLeave?.Invoke(ev.Message.GetInt());
 
+                    break;
+                }
+            case DongSrvMessageType.PlayMusic:
+                {
+                    OnPlayMusic?.Invoke();
                     break;
                 }
         }
